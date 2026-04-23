@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+    <title>Bongo Market · Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --teal: #0A7373;
+            --teal-dark: #065959;
+            --orange: #F4821A;
+            --bg: #f3f4f6;
+            --white: #ffffff;
+            --text: #1F2937;
+            --text-light: #6b7280;
+            --shadow: 0 4px 12px rgba(0,0,0,0.06);
+            --radius: 16px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        /* Top Bar */
+        .topbar {
+            background: var(--white);
+            padding: 14px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .topbar .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.2rem; color: var(--teal); }
+        .topbar .logo i { font-size: 1.6rem; }
+        .topbar .logout-btn {
+            background: #f3f4f6; border: none; padding: 8px 16px; border-radius: 20px;
+            font-weight: 600; color: var(--text-light); cursor: pointer;
+        }
+        .topbar .logout-btn:hover { background: #fee2e2; color: #dc2626; }
+
+        /* Login */
+        .login-screen {
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; padding: 20px;
+            background: linear-gradient(145deg, #e0f2fe, #dbeafe);
+        }
+        .login-card {
+            background: var(--white); padding: 30px 25px; border-radius: var(--radius);
+            box-shadow: var(--shadow); width: 100%; max-width: 380px; text-align: center;
+        }
+        .login-card h2 { font-size: 1.8rem; color: var(--teal); margin-bottom: 10px; }
+        .login-card p { color: var(--text-light); margin-bottom: 25px; }
+        .login-card input {
+            width: 100%; padding: 14px; border: 1.5px solid #e2e8f0; border-radius: 12px;
+            font-size: 1rem; margin-bottom: 15px; outline: none;
+        }
+        .login-card input:focus { border-color: var(--teal); }
+        .login-card button {
+            background: linear-gradient(135deg, var(--teal), var(--teal-dark));
+            color: white; border: none; padding: 14px; width: 100%; border-radius: 12px;
+            font-weight: 700; font-size: 1rem; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(10,115,115,0.3);
+        }
+        .login-card button:active { transform: scale(0.97); }
+        .error-msg { color: #dc2626; font-size: 0.85rem; margin-top: 10px; display: none; }
+
+        /* Dashboard */
+        .dashboard { display: none; padding: 20px; max-width: 1100px; margin: 0 auto; }
+        .dashboard h2 { color: var(--teal); margin-bottom: 20px; font-size: 1.8rem; }
+
+        .stats-row {
+            display: flex; gap: 12px; margin-bottom: 30px; flex-wrap: wrap;
+        }
+        .stat-card {
+            flex: 1 1 150px; background: var(--white); padding: 16px; border-radius: 16px;
+            box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px;
+        }
+        .stat-card i { font-size: 1.8rem; color: var(--teal); }
+        .stat-card .label { font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card .value { font-size: 1.6rem; font-weight: 800; }
+
+        /* Table */
+        .table-container {
+            background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow);
+            overflow-x: auto; margin-top: 10px;
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 700px; }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+        th { background: #f8fafc; font-weight: 600; color: var(--text-light); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        tr:hover { background: #f9fafb; }
+        .plan-badge {
+            background: #e0f2fe; color: var(--teal); font-weight: 600; padding: 2px 10px;
+            border-radius: 20px; font-size: 0.8rem; display: inline-block;
+        }
+        .trusted-badge {
+            background: linear-gradient(135deg, #F59E0B, #D97706); color: white;
+            padding: 2px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .btn-sm {
+            padding: 6px 12px; border: none; border-radius: 8px; font-weight: 600;
+            font-size: 0.8rem; cursor: pointer; transition: all 0.2s; margin: 2px;
+        }
+        .btn-edit { background: #e0f2fe; color: var(--teal); }
+        .btn-delete { background: #fee2e2; color: #dc2626; }
+        .btn-edit:hover { background: #b6e0fe; }
+        .btn-delete:hover { background: #fecaca; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(2px); z-index: 1000; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background: var(--white); border-radius: var(--radius); padding: 25px;
+            width: 90%; max-width: 500px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            animation: slideUp 0.25s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { font-size: 1.5rem; color: var(--teal); }
+        .modal-close { background: none; border: none; font-size: 1.4rem; color: var(--text-light); cursor: pointer; }
+        .modal-body { display: flex; flex-direction: column; gap: 15px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-weight: 600; font-size: 0.85rem; color: var(--text-light); }
+        .form-group select, .form-group input[type="date"] {
+            padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 0.95rem;
+        }
+        .checkbox-row { display: flex; align-items: center; gap: 8px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-save { background: var(--teal); color: white; flex: 1; }
+        .btn-delete-user { background: #dc2626; color: white; }
+        .spinner { width: 35px; height: 35px; border: 4px solid #e2e8f0; border-top-color: var(--teal); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 30px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) {
+            .dashboard { padding: 15px; }
+            .stats-row { gap: 8px; }
+            .table-container { border-radius: 12px; }
+            th, td { padding: 10px 12px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="topbar" id="topbar" style="display: none;">
+        <div class="logo"><i class="fas fa-shield-alt"></i><span>Bongo Admin</span></div>
+        <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+    </div>
+
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <i class="fas fa-lock" style="font-size: 2.5rem; color: var(--teal); margin-bottom: 10px;"></i>
+            <h2>Admin Login</h2>
+            <p>Enter your secret password</p>
+            <input type="password" id="adminPass" placeholder="••••••••" autocomplete="off" />
+            <button onclick="login()"><i class="fas fa-arrow-right-to-bracket mr-2"></i> Login</button>
+            <p class="error-msg" id="loginError">Wrong password!</p>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard" id="dashboard">
+        <h2>User Management</h2>
+        <div class="stats-row" id="statsRow"></div>
+        <div class="table-container">
+            <div id="usersTable"></div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Seller</h3>
+                <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ Configuration
+        const SUPABASE_URL = 'https://xidmmslqehcaxuknypsi.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_2zodTw0usiD_8MPC8uIZHQ_S8wjub9G';
+        const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpZG1tc2xxZWhjYXh1a255cHNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Njc5ODE3NywiZXhwIjoyMDkyMzc0MTc3fQ.NbEsuPNbJMMwGdi3z50KloK_zupCopnQ_tv9LBa9Zu8';
+        const ADMIN_PASSWORD = 'admin123'; // change
+
+        const supabaseAdmin = supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+            auth: { persistSession: false }
+        });
+
+        let currentUsers = [];
+
+        function showDashboard() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('topbar').style.display = 'flex';
+        }
+        function showLogin() {
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('topbar').style.display = 'none';
+            document.getElementById('adminPass').value = '';
+        }
+
+        function login() {
+            const pass = document.getElementById('adminPass').value;
+            if (pass === ADMIN_PASSWORD) {
+                showDashboard();
+                loadUsers();
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+            }
+        }
+
+        function logout() {
+            if (confirm('Logout from admin panel?')) showLogin();
+        }
+
+        // ---- Load & Render ----
+        async function loadUsers() {
+            const container = document.getElementById('usersTable');
+            container.innerHTML = '<div class="spinner"></div>';
+
+            const { data: users, error } = await supabaseAdmin
+                .from('users')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                container.innerHTML = `<p style="color:red; padding:20px;">Error: ${error.message}</p>`;
+                return;
+            }
+
+            currentUsers = users || [];
+            renderStats(currentUsers);
+            renderTable(currentUsers);
+        }
+
+        function renderStats(users) {
+            const total = users.length;
+            const premium = users.filter(u => u.plan === 'premium').length;
+            const basic = users.filter(u => u.plan === 'basic').length;
+            const free = users.filter(u => !u.plan || u.plan === 'free').length;
+            document.getElementById('statsRow').innerHTML = `
+                <div class="stat-card"><i class="fas fa-users"></i><div><div class="label">Total</div><div class="value">${total}</div></div></div>
+                <div class="stat-card"><i class="fas fa-crown" style="color:#F59E0B;"></i><div><div class="label">Premium</div><div class="value">${premium}</div></div></div>
+                <div class="stat-card"><i class="fas fa-chart-line"></i><div><div class="label">Basic</div><div class="value">${basic}</div></div></div>
+                <div class="stat-card"><i class="fas fa-seedling"></i><div><div class="label">Free</div><div class="value">${free}</div></div></div>
+            `;
+        }
+
+        function renderTable(users) {
+            let html = `<table>
+                <thead><tr>
+                    <th>Name</th><th>Email</th><th>Phone</th><th>Plan</th><th>Trusted</th><th>Expiry</th><th>Actions</th>
+                </tr></thead><tbody>`;
+            if (users.length === 0) {
+                html += '<tr><td colspan="7" style="text-align:center; padding:20px;">No users found.</td></tr>';
+            } else {
+                for (const user of users) {
+                    const plan = user.plan || 'free';
+                    const trusted = user.is_trusted_seller;
+                    const expiry = user.expiry_date ? new Date(user.expiry_date).toLocaleDateString('en-GB') : '—';
+                    html += `
+                    <tr>
+                        <td><strong>${user.business_name || 'Unnamed'}</strong></td>
+                        <td>${user.email || user.id}</td>
+                        <td>${user.phone_number || '-'}</td>
+                        <td><span class="plan-badge">${plan}</span></td>
+                        <td>${trusted ? '<span class="trusted-badge"><i class="fas fa-check-circle"></i> Trusted</span>' : '—'}</td>
+                        <td>${expiry}</td>
+                        <td>
+                            <button class="btn-sm btn-edit" onclick="openEditModal('${user.id}')"><i class="fas fa-edit"></i> Edit</button>
+                            <button class="btn-sm btn-delete" onclick="deleteUser('${user.id}')"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+                }
+            }
+            html += '</tbody></table>';
+            document.getElementById('usersTable').innerHTML = html;
+        }
+
+        // ---- Modal ----
+        function openEditModal(userId) {
+            const user = currentUsers.find(u => u.id === userId);
+            if (!user) return;
+
+            const plan = user.plan || 'free';
+            const expiryDate = user.expiry_date ? new Date(user.expiry_date).toISOString().slice(0, 10) : '';
+            const trustedChecked = user.is_trusted_seller ? 'checked' : '';
+
+            document.getElementById('modalBody').innerHTML = `
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
+                    <div style="width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg, var(--teal), var(--teal-dark)); color:white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.2rem;">
+                        ${(user.business_name || 'U')[0].toUpperCase()}
+                    </div>
+                    <div>
+                        <strong style="font-size:1.1rem;">${user.business_name || 'Unnamed'}</strong>
+                        <div style="color:var(--text-light); font-size:0.85rem;">${user.email || user.id}</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Plan</label>
+                    <select id="modalPlan">
+                        <option value="free" ${plan === 'free' ? 'selected' : ''}>Free</option>
+                        <option value="basic" ${plan === 'basic' ? 'selected' : ''}>Basic</option>
+                        <option value="premium" ${plan === 'premium' ? 'selected' : ''}>Premium</option>
+                    </select>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="modalTrusted" ${trustedChecked}>
+                    <label for="modalTrusted">Trusted Seller</label>
+                </div>
+                <div class="form-group">
+                    <label>Expiry Date</label>
+                    <input type="date" id="modalExpiry" value="${expiryDate}">
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-sm btn-save" onclick="saveFromModal('${user.id}')"><i class="fas fa-save"></i> Save</button>
+                    <button class="btn-sm btn-delete-user" onclick="deleteUser('${user.id}')"><i class="fas fa-trash"></i> Delete</button>
+                    <button class="btn-sm" style="background:#e5e7eb; color:var(--text);" onclick="closeModal()">Cancel</button>
+                </div>
+            `;
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        window.onclick = function(event) {
+            if (event.target === document.getElementById('editModal')) {
+                closeModal();
+            }
+        }
+
+        async function saveFromModal(userId) {
+            const plan = document.getElementById('modalPlan').value;
+            const trusted = document.getElementById('modalTrusted').checked;
+            const expiryRaw = document.getElementById('modalExpiry').value;
+
+            let updateData = {
+                plan: plan,
+                is_trusted_seller: plan === 'premium' ? true : trusted,
+            };
+            if (expiryRaw) updateData.expiry_date = new Date(expiryRaw).toISOString();
+            else updateData.expiry_date = null;
+
+            const { error } = await supabaseAdmin.from('users').update(updateData).eq('id', userId);
+            if (error) return alert('Error: ' + error.message);
+
+            // Sync seller_plan on products
+            await supabaseAdmin.from('products').update({ seller_plan: plan }).eq('user_id', userId);
+            if (plan !== 'premium' && !trusted) {
+                await supabaseAdmin.from('products').update({ is_recommended: false }).eq('user_id', userId);
+            } else if (plan === 'premium') {
+                await supabaseAdmin.from('products').update({ is_recommended: true }).eq('user_id', userId);
+            }
+
+            alert('User updated successfully.');
+            closeModal();
+            loadUsers();
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Delete this user and all their products? This cannot be undone.')) return;
+            await supabaseAdmin.from('products').delete().eq('user_id', userId);
+            const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+            if (authError) console.warn('Auth delete warning:', authError);
+            const { error } = await supabaseAdmin.from('users').delete().eq('id', userId);
+            if (error) alert('Delete failed: ' + error.message);
+            else {
+                alert('User deleted.');
+                closeModal();
+                loadUsers();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('adminPass').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') login();
+            });
+        });
+    </script>
+</body>
+</html>
